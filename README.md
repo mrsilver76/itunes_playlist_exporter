@@ -110,7 +110,7 @@ You want to export all your playlists from iTunes into a folder. You plan to onl
 *  Configure `LOCAL_PLAYLIST_LOCATION` and `IGNORE_PREFIX`
 *  Run the script (`/D` is optional as Plex isn't configured correctly)
 
-### iTunes export to networked drive for use with music software running on that networked drive can access
+### iTunes export to networked drive running music software
 
 You want to export all your playlists from iTunes into a folder on a network (eg. NAS) so that software on that same networked drive can access it.
 
