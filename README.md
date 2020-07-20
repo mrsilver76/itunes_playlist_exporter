@@ -1,5 +1,5 @@
 # itunes_playlist_exporter
-A script which connects to iTunes and exports all playlists in m3u format. It can also (optionally) adjust the paths of playlists to support NAS drives and upload them to Plex.
+A script which connects to iTunes and exports all playlists in m3u format. It can also (optionally) adjust the paths of playlists to support remote drives (eg. on a NAS or a shared drive on another computer) and upload them to Plex.
 
 ## Features
 
@@ -148,4 +148,10 @@ See the next section.
 
 ## Managing multiple playlists from multiple users with Plex
 
-This section caters for people who run multiple computers with iTunes and wish to store all their music and playlists in a single location (eg. a NAS - but could be a computer with a shared 
+This section caters for people who run multiple Windows computers with iTunes and wish to store all their music and playlists in a single location (eg. a NAS - but could be a computer with a shared folder). In our example, we're going to use three people (Rita, Bob and Sue) who all have a laptop (Rita-PC, Bob-PC and Sue-PC) running iTunes and a network drive (called OurNAS) running Plex.
+
+OurNAS will need to store all three music libraries along with the playlists for each of those libraries. Plex will then be configured to point to each of these libraries so that Rita, Sue and Bob can access their own library (or someone elses) whenever they want. Whilst we could leave the music on the laptops, it will mean that the laptop would need to be on when any music is played - which is less than ideal.
+
+The first thing we need to do is create a location on OurNAS for each persons music and playlists.
+
+
