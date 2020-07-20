@@ -1,7 +1,7 @@
 # itunes_playlist_exporter
 A script which connects to iTunes and exports all playlists in m3u format. It can also (optionally) adjust the paths of playlists to support remote drives (eg. on a NAS or a shared drive on another computer) and upload them to Plex.
 
-> :warning: **Before uploading your iTunes playlists, this script will delete all playlists previously stored in Plex!**: You should not use this script if you have created playlists solely within Plex. 
+> :warning: **This script will delete playlists previously stored in Plex**: See the "warning" section for more details.
 
 ## Features
 
@@ -32,6 +32,14 @@ This program is not recommended for people who are not comfortable with the work
 4.  Modify the settings at the top of the script based on the instructions below and then save it.
 5.  Run the command by either double-clicking on the icon (a pop-up window will appear) or from the command line using: `cscript itunes_playlist_export.vbs`.
 6.  There are some options you can call from the command line to change the use of the script. For more details see later.
+
+## WARNING
+
+This script achieves (basic) synchronisation of playlists between Plex and iTunes by deleting all playlists from Plex and re-uploading them.
+
+Although you can use `/D` to prevent deletion from occurring, this script will attempt to reupload the contents of the playlist again causing duplication to occurr.
+
+> :warning: It is not recommended to use this script if you create and maintain playlists within Plex.
 
 ## Script options
 
@@ -75,6 +83,9 @@ The URL path to the Plex server and port number. This can start `http` or `https
 ### LIBRARY_ID
 
 The number of the library that the playlists will be loaded into. Make sure this library exists, is set up for music and contains all the songs that you have in the playlists. To find your library, go into the Plex web client, hover the mouse over the library you want and look at the URL. It will end with `source=xx` where `xx` is the library ID.
+
+> :warning: **This script will delete playlists previously stored in Plex!**: If you have created playlists solely in Plex then they will be lost.
+
 
 ### PLEX_PLAYLIST_LOCATION
 
@@ -227,3 +238,40 @@ and then export everyone elses playlists using the /E and /D flags to tell the s
         cscript "iTunes_Playlist_Exporter_Bob.vbs" /E /D
     ) 
 
+Here is the final script. It's recommended you store this on the network drive and create a shortcut on each PC:
+
+    @echo off
+    setlocal enabledelayedexpansion
+    
+    rem Set the variables
+    
+    SET src=C:\Users\%username%\Music\iTunes\iTunes Media\Music
+    SET music=\\OurNAS\Music\Songs\%username%
+    SET playlists=\\OurNAS\Music\Playlists\%username%
+
+    Rem Mirror the contents of the iTunes Media folder to the NAS
+
+    robocopy /MIR /COPY:DAT /DCOPY:DAT /MT /R:5 /W:5 "%src%" "%music%"
+    
+    Rem Export iTunes playlists, delete existing playlists on Plex and upload these ones
+    
+    cscript "iTunes_Playlist_Exporter_%username%.vbs"
+
+    Rem Upload everyone elses playlists, without exporting or deleting
+
+    if "%username%" == "Rita" (
+        cscript "iTunes_Playlist_Exporter_Bob.vbs" /E /D
+        cscript "iTunes_Playlist_Exporter_Sue.vbs" /E /D
+    ) 
+    if "%username%" == "Bob" (
+        cscript "iTunes_Playlist_Exporter_Rita.vbs" /E /D
+        cscript "iTunes_Playlist_Exporter_Sue.vbs" /E /D
+    ) 
+    if "%username%" == "Sue" (
+        cscript "iTunes_Playlist_Exporter_Rita.vbs" /E /D
+        cscript "iTunes_Playlist_Exporter_Bob.vbs" /E /D
+    ) 
+
+## Questions, comments or suggestions?
+
+The easiest way is to raise a ticket on Github.
