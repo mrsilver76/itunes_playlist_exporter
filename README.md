@@ -1,6 +1,8 @@
 # itunes_playlist_exporter
 A script which connects to iTunes and exports all playlists in m3u format. It can also (optionally) adjust the paths of playlists to support remote drives (eg. on a NAS or a shared drive on another computer) and upload them to Plex.
 
+> :warning: **Before uploading your iTunes playlists, this script will delete all playlists previously stored in Plex!**: You should not use this script if you have created playlists solely within Plex. 
+
 ## Features
 
 This script has the following features:
@@ -86,9 +88,9 @@ The full path required by Plex to access the playlists stored in `LOCAL_PLAYLIST
         /?          Display help.
         /E          Don't export from iTunes.
         /D          Don't delete playlists from Plex.
-        /U          Don't upload to Plex. Implies /E.
+        /U          Don't upload to Plex.
 
-Options `/E`, `/D` and `/U` are useful when you're trying to upload multiple playlists to Plex. For more details see the later section.
+Options `/E` and `/D` are useful when you're trying to upload multiple playlists to Plex. For more details see the later section.
 
 ### Don't export from iTunes (/E)
 
@@ -201,10 +203,10 @@ Now we need to export and upload the playlists for each of the users. However if
     cscript "iTunes_Playlist_Exporter_Bob.vbs"
     cscript "iTunes_Playlist_Exporter_Sue.vbs"
 
-then we'll have problems:
+then we'll have two problems:
 
 1.  Two out of the three scripts will fail to export from iTunes because they aren't being run on the correct computer
-2.  Although uploading of the scripts will work, the existing Plex playlists will be erased each time it is run - leaving you with only Sue's.
+2.  Although uploading of the playlists to Plex will work, the existing Plex playlists will be erased each time it is run - leaving you with only Sue's.
 
 To resolve this we need to export and upload the main users first:
 
