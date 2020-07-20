@@ -53,6 +53,7 @@ For example, with a prefix of "x " then a playlist called "x Temporary" won't be
 If you plan on allowing other users/machines/software to access the playlist then you may find that the location embedded in the playlist file isn't accessible for them. For example, `D:\My Music` won't be accessible by a NAS or a different computer. To solve this you can use `PATH_FIND` and `PATH_REPLACE` to swap out the paths within the playlists to ones which can be accessed. 
 
 `PATH_FIND` - the text to find within the path of a song
+
 `PATH_REPLACE` - the text to replace within the path of a song
 
 ## Plex specific options
@@ -97,7 +98,7 @@ Skips the deleting of previous playlists and exporting of new playlists from iTu
 
 Skips the deleting of all playlists on Plex prior to uploading new ones.
 
-#### Don't upload to Plex (/U)
+### Don't upload to Plex (/U)
 
 Skips the deleting of existing playlists on Plex and the re-uploading of the new playlists.
 
@@ -105,7 +106,7 @@ Skips the deleting of existing playlists on Plex and the re-uploading of the new
 
 ### Single machine with iTunes export
 
-You want to export all your playlists from iTunes into a folder. You plan to only use the playlists on this machine.
+You want to export all your playlists from iTunes into a folder. You plan to only use the playlists with software running on this machine.
 
 *  Configure `LOCAL_PLAYLIST_LOCATION` and `IGNORE_PREFIX`
 *  Run the script (`/D` is optional as Plex isn't configured correctly)
@@ -121,7 +122,7 @@ You want to export all your playlists from iTunes into a folder on a network (eg
 
 ### iTunes export to Plex running on same machine
 
-You have iTunes and Plex running on the same machine.
+You have iTunes and Plex running on the same machine and want to load your playlists into Plex.
 
 *  Configure `LOCAL_PLAYLIST_LOCATION` and `IGNORE_PREFIX`
 *  Configure `TOKEN`, `SERVER` and `LIBRARY_ID`
@@ -130,11 +131,7 @@ You have iTunes and Plex running on the same machine.
 
 ### iTunes export to Plex running on different machine
 
-You have Plex running on a different machine to iTunes. Your playlists need to be copied to somewhere that both Plex and your PC running iTunes can access. There are three possible locations for the playlists:
-
-1.  Stored on the machine with iTunes, but with a network share so that it can be accessed by other machines
-2.  Stored on the machine with Plex, but with a network share so that it can be accessed by other machines
-3.  Stored on a different machine (eg. NAS), with a network path that can be accessed by all other machines
+You have Plex running on a different machine to the one running iTunes. Your playlists will go on a network share. Plex is either running on that network share (eg. a NAS) or another computer. 
 
 *  Configure `LOCAL_PLAYLIST_LOCATION` to be network path to where the playlists should be stored. This location needs to be accessible by all computers.
 *  Configure `IGNORE_PREFIX`
@@ -142,7 +139,7 @@ You have Plex running on a different machine to iTunes. Your playlists need to b
 *  Configure `PLEX_PLAYLIST_LOCATION` to be the location where Plex would look to find the playlists
 *  Run the script 
 
-#### Export of multiple iTunes playlists to a shared drive (and then, optionally, uploading to Plex)
+### Export of multiple iTunes playlists to a shared drive (and then, optionally, uploading to Plex)
 
 See the next section.
 
