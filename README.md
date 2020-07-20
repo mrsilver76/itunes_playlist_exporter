@@ -142,16 +142,89 @@ You have Plex running on a different machine to iTunes. Your playlists need to b
 *  Configure `PLEX_PLAYLIST_LOCATION` to be the location where Plex would look to find the playlists
 *  Run the script 
 
-#### Multiple iTunes exports
+#### Export of multiple iTunes playlists to a shared drive (and then, optionally, uploading to Plex)
 
 See the next section.
 
-## Managing multiple playlists from multiple users with Plex
+## Managing multiple playlists from multiple users to a shared drive
 
-This section caters for people who run multiple Windows computers with iTunes and wish to store all their music and playlists in a single location (eg. a NAS - but could be a computer with a shared folder). In our example, we're going to use three people (Rita, Bob and Sue) who all have a laptop (Rita-PC, Bob-PC and Sue-PC) running iTunes and a network drive (called OurNAS) running Plex.
+This section caters for people who run multiple Windows computers with iTunes and wish to store all their music and playlists in a single location such as a NAS. It doesn't have to be a NAS, any computer with a shared folder could be used.
 
-OurNAS will need to store all three music libraries along with the playlists for each of those libraries. Plex will then be configured to point to each of these libraries so that Rita, Sue and Bob can access their own library (or someone elses) whenever they want. Whilst we could leave the music on the laptops, it will mean that the laptop would need to be on when any music is played - which is less than ideal.
+In our example, we're going to use three people (Rita, Bob and Sue) who all have a laptop (Rita-PC, Bob-PC and Sue-PC) running iTunes and a network drive (called OurNAS). We also assume that "Keep iTunes Media folder organised" and "Copy files to iTunes Media folder when adding to library" are both enabled.
 
-The first thing we need to do is create a location on OurNAS for each persons music and playlists.
+### Copying the music files to the network drive
 
+Easiest way to do this is to use robocopy and mirror the contents of the iTunes music folder to the network drive. We'll create a single script which will use the username to determine where the files should be located. The contents will go in a folder called "Music" which, itself, is seperated into "Songs" and "Playlists"
+
+    @echo off
+    setlocal enabledelayedexpansion
+    
+    SET src=C:\Users\%username%\Music\iTunes\iTunes Media\Music
+    SET music=\\OurNAS\Music\Songs\%username%
+    SET playlists=\\OurNAS\Music\Playlists\%username%
+
+    robocopy /MIR /COPY:DAT /DCOPY:DAT /MT /R:5 /W:5 "%src%" "%music%"
+
+Now we need to export the playlists:
+
+    cscript "iTunes_Playlist_Exporter-%username%.vbs"
+    
+This will execute one of three scripts (`iTunes_Playlist_Exporter_Rita.vbs`, `iTunes_Playlist_Exporter_Bob.vbs` or `iTunes_Playlist_Exporter_Sue.vbs`). We now need to make three copies of the iTunes Playlist script and modify each of them so that they work for that user on their machine. In other words, if Rita runs `iTunes_Playlist_Exporter_Rita.vbs` then it should export her playlists to `\\OurNAS\Music\Playlists\Rita` - like so:
+
+    Const LOCAL_PLAYLIST_LOCATION = "\\OurNAS\Music\Playlists\Rita"
+    Const PATH_FIND = "C:\Users\Rita\Music\iTunes\iTunes Media\Music\"
+    Const PATH_REPLACE = "\\OurNAS\Music\Songs\Rita\"
+
+After each person has run the script once we should have:
+
+1.  `\\OurNAS\Music\Songs` containing three folders (`Rita`, `Bob` and `Sue`) with music in each of them
+2.  `\\OurNAS\Music\Playlists` also containing three folders (`Rita`, `Bob` and `Sue`) with playlists in each of them
+3.  Each of the playlists should correctly reference the location of the song on the NAS, rather than each persons own computer
+
+If you're using software on the NAS (or shared network drive) which isn't Plex, then you should now configure it to find the playlists and the songs.
+
+### Copying the music files to the network drive (and then using Plex)
+
+As before, but we need to add the ability to upload the playlists to Plex - which is either running on the same machine as the networked drive (eg. a NAS) or a completely different machine (eg. a dedicated Plex machine).
+
+We're using the same assumptions as before.
+
+    @echo off
+    setlocal enabledelayedexpansion
+    
+    SET src=C:\Users\%username%\Music\iTunes\iTunes Media\Music
+    SET music=\\OurNAS\Music\Songs\%username%
+    SET playlists=\\OurNAS\Music\Playlists\%username%
+
+    robocopy /MIR /COPY:DAT /DCOPY:DAT /MT /R:5 /W:5 "%src%" "%music%"
+
+Now we need to export and upload the playlists for each of the users. However if we just call the following:
+    
+    cscript "iTunes_Playlist_Exporter_Rita.vbs"
+    cscript "iTunes_Playlist_Exporter_Bob.vbs"
+    cscript "iTunes_Playlist_Exporter_Sue.vbs"
+
+then we'll have problems:
+
+1.  Two out of the three scripts will fail to export from iTunes because they aren't being run on the correct computer
+2.  Although uploading of the scripts will work, the existing Plex playlists will be erased each time it is run - leaving you with only Sue's.
+
+To resolve this we need to export and upload the main users first:
+
+    cscript "iTunes_Playlist_Exporter_%username%.vbs"
+
+and then export everyone elses playlists using the /E and /D flags to tell the script not to export from iTunes (which will fail) and not to delete the playlists which are already loaded into Plex:
+
+    if "%username%" == "Rita" (
+        cscript "iTunes_Playlist_Exporter_Bob.vbs" /E /D
+        cscript "iTunes_Playlist_Exporter_Sue.vbs" /E /D
+    ) 
+    if "%username%" == "Bob" (
+        cscript "iTunes_Playlist_Exporter_Rita.vbs" /E /D
+        cscript "iTunes_Playlist_Exporter_Sue.vbs" /E /D
+    ) 
+    if "%username%" == "Sue" (
+        cscript "iTunes_Playlist_Exporter_Rita.vbs" /E /D
+        cscript "iTunes_Playlist_Exporter_Bob.vbs" /E /D
+    ) 
 
