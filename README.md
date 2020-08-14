@@ -183,39 +183,9 @@ and then export everyone elses playlists using the /E and /D flags to tell the s
         cscript "iTunes_Playlist_Exporter_Bob.vbs" /E /D
     ) 
 
-Here is the final script. It's recommended you store this on the network drive and create a shortcut on each PC:
+This script should be stored on a network share with a shortcut placed on Rita, Bob and Sue's computers.
 
-    @echo off
-    setlocal enabledelayedexpansion
-    
-    rem Set the variables
-    
-    SET src=C:\Users\%username%\Music\iTunes\iTunes Media\Music
-    SET music=\\OurNAS\Music\Songs\%username%
-    SET playlists=\\OurNAS\Music\Playlists\%username%
-
-    Rem Mirror the contents of the iTunes Media folder to the NAS
-
-    robocopy /MIR /COPY:DAT /DCOPY:DAT /MT /R:5 /W:5 "%src%" "%music%"
-    
-    Rem Export iTunes playlists, delete existing playlists on Plex and upload these ones
-    
-    cscript "iTunes_Playlist_Exporter_%username%.vbs"
-
-    Rem Upload everyone elses playlists, without exporting or deleting
-
-    if "%username%" == "Rita" (
-        cscript "iTunes_Playlist_Exporter_Bob.vbs" /E /D
-        cscript "iTunes_Playlist_Exporter_Sue.vbs" /E /D
-    ) 
-    if "%username%" == "Bob" (
-        cscript "iTunes_Playlist_Exporter_Rita.vbs" /E /D
-        cscript "iTunes_Playlist_Exporter_Sue.vbs" /E /D
-    ) 
-    if "%username%" == "Sue" (
-        cscript "iTunes_Playlist_Exporter_Rita.vbs" /E /D
-        cscript "iTunes_Playlist_Exporter_Bob.vbs" /E /D
-    ) 
+A version of the script with comments can be found here.
 
 ## Questions, comments or suggestions?
 
