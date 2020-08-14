@@ -185,7 +185,7 @@ and then export everyone elses playlists using the /E and /D flags to tell the s
 
 This script should be stored on a network share with a shortcut placed on Rita, Bob and Sue's computers.
 
-A version of the script with comments can be found here.
+You can find a copy of this script inside the zip file.
 
 ## Questions, comments or suggestions?
 
