@@ -449,7 +449,7 @@ Function All_Playlist_Contents_In_Library(sKey)
 	Dim sOutput : sOutput = Execute_Command("curl -sS """ & SERVER & "playlists/" & sKey & "/items?X-Plex-Token=" & TOKEN & """")
 
 	' Ideally we'd use a regexp but since the playlists can be massive, this
-	' means it's extremely slow. So we're going to use string matching instead.
+	' means it can be slow - so we're going to use string matching instead.
 	
 	Dim sLine, sString
 	sString = "librarySectionID=""" & LIBRARY_ID & """"
@@ -469,45 +469,6 @@ Function All_Playlist_Contents_In_Library(sKey)
 	All_Playlist_Contents_In_Library = True
 		
 End Function
-
-
-Function Slow_All_Playlist_Contents_In_Library(sKey)
-
-	All_Playlist_Contents_In_Library = True
-	
-	' Get the playlist details
-	Dim sString : sString = Execute_Command("curl -sS """ & SERVER & "playlists/" & sKey & "/items?X-Plex-Token=" & TOKEN & """")
-	
-	' Look at the LibrarySectionID for every entry.
-	
-	Dim oRE : Set oRE = New RegExp
-	With oRE
-		.Global = True
-		.IgnoreCase = True
-		.Pattern = "librarySectionID=\""(\d+?)\"""
-	End With
-	
-	Dim oMatches, oMatch : Set oMatches = oRE.Execute(sString)
-	If oMatches.Count = 0 Then
-		' No matches
-		All_Playlist_Contents_In_Library = False
-	Else
-		For Each oMatch In oMatches
-			' If this playlist item doesn't belong to the library ID we are
-			' interested in then we should not delete this playlist
-			If CInt(oMatch.SubMatches(0)) <> CInt(LIBRARY_ID) Then
-				All_Playlist_Contents_In_Library = False
-				Exit For
-			End If
-		Next
-	End If
-	
-	' Clean up
-	Set oMatches = Nothing
-	Set oRE = Nothing
-	
-End Function
-
 
 ' Find_Key
 ' Given a string, find the key from within it and return it. Needed to
