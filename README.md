@@ -36,7 +36,7 @@ This program is not recommended for people who are not comfortable with the work
 
 ## Installation and usage
 
-1.  Download the latest version from https://github.com/mrsilver76/itunes_playlist_exporter/archive/master.zip
+1.  Download the latest version from https://github.com/mrsilver76/itunes_playlist_exporter/releases
 2.  Extract the files and place the file `iTunes_Playlist_Exporter.vbs` somewhere easy to reference when you want to run it
 3.  Edit `iTunes_Playlist_Exporter.vbs` using your favourite text editor (I recommend Notepad++ but Notepad will do)
 4.  Modify the settings at the top of the script based on the instructions below and then save it.
