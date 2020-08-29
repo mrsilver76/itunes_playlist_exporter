@@ -1,7 +1,7 @@
 # itunes_playlist_exporter
 A script which connects to iTunes and exports all playlists in m3u format. It can also (optionally) adjust the paths of playlists to support remote drives (eg. on a NAS or a shared drive on another computer) and upload them to Plex.
 
-> :warning: **This script will delete playlists previously stored in Plex**: See the "warning" section for more details.
+> :warning: **This script will delete playlists previously stored in Plex**: See the "Plex warning" section for more details.
 
 ## Features
 
@@ -12,6 +12,16 @@ This script has the following features:
 3. Replace paths in a playlist with ones that can be accessed on by other users/machines/software (for example, repoint paths to a NAS)
 4. Delete existing playlists on Plex and upload new ones
 5. Command line options to prevent exporting of playlists and uploading of playlists (useful if trying to merge multiple playlists)
+
+## Plex warning
+
+This script allows you to (optionally) upload your playlists to Plex.
+
+To enable this, this script treats iTunes as the primary store of playlists and mirrors the content to Plex. _**All Plex playlists solely associated with a music library (defined within the script) will be deleted and replaced**_.
+
+Playlists that contains content outside of the music library (eg. someone elses playlists or a playlist of video files) will not be removed. 
+
+> :warning: It is not recommended to use this script if you create and maintain music playlists within Plex.
 
 ## Requirements
 
@@ -33,16 +43,6 @@ This program is not recommended for people who are not comfortable with the work
 5.  Run the command by either double-clicking on the icon (a pop-up window will appear) or from the command line using: `cscript itunes_playlist_export.vbs`.
 6.  There are some options you can call from the command line to change the use of the script. For more details see later.
 
-## Known issue/restrictions
-
-This script has a number of known issues/restrictions. If you are able to help, please add commentary in the appropriate ticket.
-
-1.  Basic synchronisation is achieved by deleting all playlists from Plex and then re-uploading. This is because there is no Plex API call to just delete the playlists associated with a single library. (github issue)
-2.  The titles of playlists in Plex do not match the original playlist name. This is because the playlist filename needs to remove all characters not supported by Windows but also a range of characters not supported by Plex. There does not appear to be an API call to rename a playlist that has been imported into Plex (github issue)
-3.  Some playlists do not import into Plex and produce an internal error. There is no indication as to why this happens in the error message or Plex logs (github issue)
-4.  iTunes music files which have DRM are not supported. There is no workaround for this.
-
-> :warning: It is not recommended to use this script if you create and maintain playlists within Plex.
 
 ## Script options
 
@@ -73,6 +73,8 @@ If you plan on allowing other users/machines/software to access the playlist the
 
 These options relate to automatically uploading your playlists to Plex Media Server. Plex is free software (with an optional paid for pass) that allows you to manage and view your audio and video content. More details can be found at https://www.plex.tv/
 
+When this script launches it will test connectivity to Plex. If this fails then the script will continue to run, but modifications to Plex will be disabled.
+
 ### TOKEN
 
 The API token required for this script to be able to access Plex. For details on how to find this, see https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/.
@@ -87,7 +89,7 @@ The URL path to the Plex server and port number. This can start `http` or `https
 
 The number of the library that the playlists will be loaded into. Make sure this library exists, is set up for music and contains all the songs that you have in the playlists. To find your library, go into the Plex web client, hover the mouse over the library you want and look at the URL. It will end with `source=xx` where `xx` is the library ID.
 
-> :warning: **This script will delete playlists previously stored in Plex!**: If you have created playlists solely in Plex then they will be lost.
+> :warning: **This script will delete any playlist that contains content solely from this LIBRARY_ID**
 
 
 ### PLEX_PLAYLIST_LOCATION
@@ -104,8 +106,6 @@ The full path required by Plex to access the playlists stored in `LOCAL_PLAYLIST
         /D          Don't delete playlists from Plex.
         /U          Don't upload to Plex.
 
-Options `/E` and `/D` are useful when you're trying to upload multiple playlists to Plex. For more details see the later section.
-
 ### Don't export from iTunes (/E)
 
 Skips the deleting of previous playlists and exporting of new playlists from iTunes.
@@ -118,74 +118,23 @@ Skips the deleting of all playlists on Plex prior to uploading new ones.
 
 Skips the deleting of existing playlists on Plex and the re-uploading of the new playlists.
 
-## Managing multiple playlists from multiple users to a shared drive (and, optionally, uploading to Plex)
+## Uploading music and playlists to a shared drive
 
-This section will be useful for people who run multiple Windows computers with iTunes and wish to store all their music and playlists in a single location such as a NAS. It doesn't have to be a NAS, any computer with a shared folder could be used.
+`Update_Music.bat` is a sample batch file which, when run, will do the following:
 
-In our example, we're going to use three people (`Rita`, `Bob` and `Sue`) who all have a laptop running iTunes and a network drive (called `OurNAS`). We also assume that "Keep iTunes Media folder organised" and "Copy files to iTunes Media folder when adding to library" are  enabled on everyones laptops.
+1. Copy all the music content from the local iTunes Media folder to a shared network drive (`\\OurNAS\Music\Songs` but can be changed)
+2. Export all playlists to a shared network drive (`\\OurNAS\Music\Playlists` but can be changed)
+3. Optionally upload to Plex (if `itunes_playlist_exporter` has been configured to do so)
 
-### Copying the music files to the network drive
+You will need to edit the content of the batch file before it can be run. It's recommended that you place this batch file and the script on your shared network location and then create a shortcut on your desktop to it.
 
-The easiest way to do this is to use robocopy and mirror the contents of the iTunes music folder to the network drive. We'll create a single script which will use the username to determine where the files should be located. The contents will go in a folder called "Music" which, itself, is seperated into "Songs" and "Playlists"
+### Managing multiple playlists from multiple users to a shared drive
 
-    @echo off
-    setlocal enabledelayedexpansion
-    
-    SET src=C:\Users\%username%\Music\iTunes\iTunes Media\Music
-    SET music=\\OurNAS\Music\Songs\%username%
-    SET playlists=\\OurNAS\Music\Playlists\%username%
+The `Update_Music.bat` batch file can support multiple users all uploading music and playlists to a shared drive.
 
-    robocopy /MIR /COPY:DAT /DCOPY:DAT /MT /R:5 /W:5 "%src%" "%music%"
+To do this, it takes the Windows username of the person running the script (henceforce known as `Username`), copies music to `\\OurNAS\Music\Songs\Username` and copies playlists to `\\OurNAS\Music\Playlists\Username`. It will then attempt to launch `iTunes_Playlist_Exporter_Username.vbs` which is a copy of the script specifically configured for that user. You need to have a copy of the script (with the correct filename appended to it) for every user who plans to run the script.
 
-Now we need to export the playlists:
-
-    cscript "iTunes_Playlist_Exporter_%username%.vbs"
-    
-This will execute one of three scripts (`iTunes_Playlist_Exporter_Rita.vbs`, `iTunes_Playlist_Exporter_Bob.vbs` or `iTunes_Playlist_Exporter_Sue.vbs`). We now need to make three copies of the iTunes Playlist script and modify each of them so that they work for that user on their machine. In other words, if Rita runs `iTunes_Playlist_Exporter_Rita.vbs` then it should export her playlists to `\\OurNAS\Music\Playlists\Rita` - like so:
-
-    Const LOCAL_PLAYLIST_LOCATION = "\\OurNAS\Music\Playlists\Rita"
-    Const PATH_FIND = "C:\Users\Rita\Music\iTunes\iTunes Media\Music\"
-    Const PATH_REPLACE = "\\OurNAS\Music\Songs\Rita\"
-
-After each person has run the script once we should have:
-
-1.  `\\OurNAS\Music\Songs` containing three folders (`Rita`, `Bob` and `Sue`) with music in each of them
-2.  `\\OurNAS\Music\Playlists` also containing three folders (`Rita`, `Bob` and `Sue`) with playlists in each of them
-3.  Each of the playlists should correctly reference the location of the song on the NAS, rather than each persons own computer
-
-If you're using software on the NAS (or shared network drive) which isn't Plex, then you should now configure it to find the playlists and the songs.
-
-### Uploading to Plex
-
-If you're using Plex then you cannot point it to a folder of m3u playlists, the contents must be uploaded to the Plex server through the API.
-
-If we just call this script three times (one for Rita, then Bob and finally Sue) then we'll have two problems:
-
-1.  Two out of the three scripts will fail to export from iTunes because they aren't being run on the correct computer
-2.  Although uploading of the playlists to Plex will work, the existing Plex playlists will be erased each time it is run - leaving you with only Sue's.
-
-To resolve this we need to export and upload the main users first:
-
-    cscript "iTunes_Playlist_Exporter_%username%.vbs"
-
-and then export everyone elses playlists using the /E and /D flags to tell the script not to export from iTunes (which will fail) and not to delete the playlists which are already loaded into Plex:
-
-    if "%username%" == "Rita" (
-        cscript "iTunes_Playlist_Exporter_Bob.vbs" /E /D
-        cscript "iTunes_Playlist_Exporter_Sue.vbs" /E /D
-    ) 
-    if "%username%" == "Bob" (
-        cscript "iTunes_Playlist_Exporter_Rita.vbs" /E /D
-        cscript "iTunes_Playlist_Exporter_Sue.vbs" /E /D
-    ) 
-    if "%username%" == "Sue" (
-        cscript "iTunes_Playlist_Exporter_Rita.vbs" /E /D
-        cscript "iTunes_Playlist_Exporter_Bob.vbs" /E /D
-    ) 
-
-This script should be stored on a network share with a shortcut placed on Rita, Bob and Sue's computers.
-
-You can find a copy of this script inside the zip file.
+You will need to edit the content of the batch file before it can be run. It's recommended that you place this batch file and the copies of the scripts (all with different usernames appended) on your shared network location and then create a shortcut on each persons desktop to it.
 
 ## Questions, comments or suggestions?
 
