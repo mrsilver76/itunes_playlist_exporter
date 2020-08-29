@@ -1,6 +1,6 @@
 Option Explicit
 
-' iTunes Playlist Exporter v1.0, Copyright © 2020 Richard Lawrence
+' iTunes Playlist Exporter v1.1, Copyright © 2020 Richard Lawrence
 ' https://github.com/mrsilver76/itunes_playlist_exporter
 '
 ' A script which connects to iTunes and exports all playlists in m3u
@@ -8,7 +8,8 @@ Option Explicit
 ' support NAS drives and upload them to Plex.
 '
 ' Notes: * DRM'ed music is not exported and not supported by Plex.
-'        * Playlists created on Plex will get deleted during import.
+'        * Existing playlists created (with only content from the library
+'          you're uploading to) will be deleted.
 '        * If you're not running Windows 10, you need to install Curl which
 '          is available from https://curl.haxx.se/windows/
 '
@@ -75,7 +76,7 @@ Const TOKEN=""
 ' or https depending on whether or not you're forcing secure connections. You
 ' can use 127.0.0.1 to mean "the same machine".
 
-Const SERVER = "http://myplexserver:32400/"
+Const SERVER = "http://127.0.0.1:32400/"
 
 ' LIBRARY_ID - the number of the library that the playlists will be loaded into.
 ' Make sure this library exists, is set up for music and contains all the songs
@@ -89,7 +90,7 @@ Const LIBRARY_ID = 12
 ' stored in LOCAL_PLAYLIST_LOCATION. If Plex is on a different machine to the 
 ' one running the script, this will have a different path.
 
-Const PLEX_PLAYLIST_LOCATION = "D:\Music\Playlists\Richard"
+Const PLEX_PLAYLIST_LOCATION = "\\Storage\Content\Music\Playlists\Richard"
 
 ' ----- End of configuration settings. Code starts here ------------------
 
@@ -103,7 +104,7 @@ bExportFromItunes = True
 bUploadToPlex = True
 bDeletePlexPlaylists = True
 
-Const VERSION = "1.0"
+Const VERSION = "1.1"
 
 Call Force_Cscript_Execution
 
@@ -129,7 +130,7 @@ Else
 End If
 
 If bUploadToPlex = True Then
-	If bDontDeletePlexPlaylists = True Then
+	If bDeletePlexPlaylists = True Then
 		Call Delete_Playlists_From_Plex
 	Else
 		Call Log("Skipping deleting of playlists on Plex")
@@ -157,9 +158,8 @@ Sub Delete_Existing_Playlists
 	End If
 
 	' Folder exists, so just delete the contents
-
 	Call Log("Deleting previous playlists in " & sPlaylistLocation)
-
+	
 	On Error Resume Next
 	fso.DeleteFile(sPlayListLocation & "\*.m3u")
 	On Error Goto 0
@@ -404,7 +404,9 @@ End Sub
 
 Sub Delete_Playlists_From_Plex
 
-	Call Log("Deleting existing Plex playlists from " & SERVER)
+	Dim iTotal, iDeleted, iFailed : iTotal = 0 : iDeleted = 0 : iFailed = 0
+
+	Call Log("Deleting playlists associated with library ID " & LIBRARY_ID & " from " & SERVER)
 
 	' Get a list of all the playlists for that library
 	Dim sOutput : sOutput = Execute_Command("curl -sS """ & SERVER & "playlists/all/?X-Plex-Token=" & TOKEN & """")	
@@ -413,13 +415,99 @@ Sub Delete_Playlists_From_Plex
 	For Each sLine In Split(sOutput, VbCrLf)
 		sKey = Find_Key(sLine)
 		If sKey <> "" Then
-			' Delete it from Plex
-			sOutput = Execute_Command("curl -sS -X DELETE """ & SERVER & "playlists/" & sKey & "?X-Plex-Token=" & TOKEN & """")
-			If sOutput <> "" Then Call Log("Curl failed with: " & sOutput)
+			iTotal = iTotal + 1
+			' Verify if all of the items in this playlist can be deleted
+			If All_Playlist_Contents_In_Library(sKey) = True Then			
+				' Delete it from Plex
+				sOutput = Execute_Command("curl -sS -X DELETE """ & SERVER & "playlists/" & sKey & "?X-Plex-Token=" & TOKEN & """")
+				If sOutput <> "" Then
+					Call Log("Curl failed with: " & sOutput)
+					iFailed = iFailed + 1
+				Else
+					iDeleted = iDeleted + 1
+				End If
+			End If
 		End If
 	Next
 
+	Call Log(iDeleted & " playlists deleted on Plex (from a total of " & iTotal & ") with " & iFailed & " failure" & Pluralise(iFailed))
+	
 End Sub
+
+' All_Playlist_Contents_In_Library
+' Given a playlist ID, looks at all the content sitting in that playlist. If there
+' are any items which don't belong to the LIBRARY_ID then return False because this
+' playlist should not be deleted. Else return True.
+
+Function All_Playlist_Contents_In_Library(sKey)
+
+	All_Playlist_Contents_In_Library = False
+
+	WScript.StdOut.Write "[" & FormatDateTime(Now(), vbLongTime) & "] Requesting playlist ID " & sKey & " from Plex" & VbCr
+	
+	' Get the playlist details
+	Dim sOutput : sOutput = Execute_Command("curl -sS """ & SERVER & "playlists/" & sKey & "/items?X-Plex-Token=" & TOKEN & """")
+
+	' Ideally we'd use a regexp but since the playlists can be massive, this
+	' means it's extremely slow. So we're going to use string matching instead.
+	
+	Dim sLine, sString
+	sString = "librarySectionID=""" & LIBRARY_ID & """"
+
+	For Each sLine In Split(sOutput, VbCrLf)
+		' Check if we have a line which contains librarySectionID
+		If Instr(sLine, "librarySectionID=") > 0 Then
+			' Check the match again, but with the LIBRARY_ID included
+			If Instr(sLine, sString) = -1 Then
+				' It's not there, this is not a library we want to delete
+				Exit Function
+			End If
+		End If
+	Next
+	
+	' Made it all the way here, so good to delete
+	All_Playlist_Contents_In_Library = True
+		
+End Function
+
+
+Function Slow_All_Playlist_Contents_In_Library(sKey)
+
+	All_Playlist_Contents_In_Library = True
+	
+	' Get the playlist details
+	Dim sString : sString = Execute_Command("curl -sS """ & SERVER & "playlists/" & sKey & "/items?X-Plex-Token=" & TOKEN & """")
+	
+	' Look at the LibrarySectionID for every entry.
+	
+	Dim oRE : Set oRE = New RegExp
+	With oRE
+		.Global = True
+		.IgnoreCase = True
+		.Pattern = "librarySectionID=\""(\d+?)\"""
+	End With
+	
+	Dim oMatches, oMatch : Set oMatches = oRE.Execute(sString)
+	If oMatches.Count = 0 Then
+		' No matches
+		All_Playlist_Contents_In_Library = False
+	Else
+		For Each oMatch In oMatches
+			' If this playlist item doesn't belong to the library ID we are
+			' interested in then we should not delete this playlist
+			If CInt(oMatch.SubMatches(0)) <> CInt(LIBRARY_ID) Then
+				All_Playlist_Contents_In_Library = False
+				Exit For
+			End If
+		Next
+	End If
+	
+	' Clean up
+	Set oMatches = Nothing
+	Set oRE = Nothing
+	
+End Function
+
 
 ' Find_Key
 ' Given a string, find the key from within it and return it. Needed to
