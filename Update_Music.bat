@@ -58,6 +58,9 @@ if "%multiuser%" == "1" (
 	SET playlists=\\OurNAS\Music\Playlists\
 )
 
+rem Nothing to change below here
+rem -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
 rem Mirror the contents of the iTunes Media folder on the computer to the network
 rem share. Uses multiple threads for speed and will retry up to five times in case
 rem the file is locked by another program or virus scanner.
