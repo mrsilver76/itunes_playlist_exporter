@@ -1,6 +1,6 @@
 Option Explicit
 
-' iTunes Playlist Exporter v1.1, Copyright © 2020 Richard Lawrence
+' iTunes Playlist Exporter v1.2, Copyright © 2020 Richard Lawrence
 ' https://github.com/mrsilver76/itunes_playlist_exporter
 '
 ' A script which connects to iTunes and exports all playlists in m3u
@@ -104,7 +104,7 @@ bExportFromItunes = True
 bUploadToPlex = True
 bDeletePlexPlaylists = True
 
-Const VERSION = "1.1"
+Const VERSION = "1.2"
 
 Call Force_Cscript_Execution
 
@@ -362,7 +362,6 @@ Function Clean_String(sText)
 		.Global = True
 		
 		' Replace all invalid characters with spaces
-		'.Pattern = "[<>:""\/\\\|\?\*]+"
 		.Pattern = "[^a-z0-9 \-\)\(]"
 		Clean_String = .Replace(Clean_String, "_")
 
@@ -404,18 +403,31 @@ End Sub
 
 Sub Delete_Playlists_From_Plex
 
-	Dim iTotal, iDeleted, iFailed : iTotal = 0 : iDeleted = 0 : iFailed = 0
+	Dim iTotal, iDone, iDeleted, iFailed, iPlaylists : iDone = 0 : iDeleted = 0 : iFailed = 0 : iPlaylists = 0
 
 	Call Log("Deleting playlists associated with library ID " & LIBRARY_ID & " from " & SERVER)
+	Call Log("Warning: Progress may be slow and erratic with large playlists. Be patient!")
 
 	' Get a list of all the playlists for that library
 	Dim sOutput : sOutput = Execute_Command("curl -sS """ & SERVER & "playlists/all/?X-Plex-Token=" & TOKEN & """")	
-	Dim sLine, sKey, sCmd
-	' Now we need to split the lines and find each <Playlist ratingKey="107806" and get the number
+
+	' Work out how many we have to process
+	Dim sLine, sKey
 	For Each sLine In Split(sOutput, VbCrLf)
-		sKey = Find_Key(sLine)
+		sKey = Find_From_Regexp(sLine, "leafCount=\""(\d+?)\""")
 		If sKey <> "" Then
-			iTotal = iTotal + 1
+			iTotal = iTotal + CLng(sKey)
+			iPlaylists = iPlaylists + 1
+		End If
+	Next
+
+	WScript.StdOut.Write "[" & FormatDateTime(Now(), vbLongTime) & "] 0% complete ... 0 playlists deleted so far (out of a total of " & iPlaylists & ")" & VbCr
+	Dim tStartTime : tStartTime = Now()
+
+	' Now walk through the list again, extracting the ratingKey
+	For Each sLine In Split(sOutput, VbCrLf)
+		sKey = Find_From_Regexp(sLine, "ratingKey=\""(\d+?)\""")
+		If sKey <> "" Then			
 			' Verify if all of the items in this playlist can be deleted
 			If All_Playlist_Contents_In_Library(sKey) = True Then			
 				' Delete it from Plex
@@ -427,11 +439,18 @@ Sub Delete_Playlists_From_Plex
 					iDeleted = iDeleted + 1
 				End If
 			End If
+			
+			' Might as well re-use sKey again to find the number of playlists processed
+			sKey = Find_From_Regexp(sLine, "leafCount=\""(\d+?)\""")
+			iDone = iDone + CLng(sKey)
+			
+			WScript.StdOut.Write "[" & FormatDateTime(Now(), vbLongTime) & "] " & Int((iDone*100)/iTotal) & "% completed ... " & iDeleted & " playlist" & Pluralise(iDeleted) & " deleted so far (out of total of " & iPlaylists & ")  " & VbCr
+					
 		End If
 	Next
 
-	Call Log(iDeleted & " playlists deleted on Plex (from a total of " & iTotal & ") with " & iFailed & " failure" & Pluralise(iFailed))
-	
+	Call Log(iDeleted & " playlists deleted on Plex (with " & iFailed & " failure" & Pluralise(iFailed) & ")                         ")
+
 End Sub
 
 ' All_Playlist_Contents_In_Library
@@ -442,14 +461,12 @@ End Sub
 Function All_Playlist_Contents_In_Library(sKey)
 
 	All_Playlist_Contents_In_Library = False
-
-	WScript.StdOut.Write "[" & FormatDateTime(Now(), vbLongTime) & "] Requesting playlist ID " & sKey & " from Plex" & VbCr
 	
 	' Get the playlist details
 	Dim sOutput : sOutput = Execute_Command("curl -sS """ & SERVER & "playlists/" & sKey & "/items?X-Plex-Token=" & TOKEN & """")
 
 	' Ideally we'd use a regexp but since the playlists can be massive, this
-	' means it can be slow - so we're going to use string matching instead.
+	' means it's extremely slow. So we're going to use string matching instead.
 	
 	Dim sLine, sString
 	sString = "librarySectionID=""" & LIBRARY_ID & """"
@@ -470,28 +487,29 @@ Function All_Playlist_Contents_In_Library(sKey)
 		
 End Function
 
-' Find_Key
-' Given a string, find the key from within it and return it. Needed to
+' Find_From_Regexp
+' Given a string and a RegExp, find the key from within it and return it. Needed to
 ' delete the playlist
 
-Function Find_Key(sString)
+Function Find_From_Regexp(sString, sPattern)
 
-	Find_Key = ""
+	Find_From_Regexp = ""
 
 	Dim oRE : Set oRE = New RegExp
 	With oRE
 		.Global = False
 		.IgnoreCase = True
-		.Pattern = "ratingKey=\""(\d+?)\"""
+		.Pattern = sPattern
 	End With
 	
 	Dim oMatch : Set oMatch = oRE.Execute(sString)
-	If oMatch.Count = 1 Then Find_Key = oMatch.Item(0).Submatches(0)
+	If oMatch.Count = 1 Then Find_From_Regexp = oMatch.Item(0).Submatches(0)
 	
 	Set oMatch = Nothing
 	Set oRE = Nothing
 	
 End Function
+
 
 ' Execute_Command
 ' Run a command and return the output it created
