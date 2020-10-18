@@ -1,6 +1,6 @@
 Option Explicit
 
-' iTunes Playlist Exporter v1.2, Copyright © 2020 Richard Lawrence
+' iTunes Playlist Exporter v1.2.1, Copyright © 2020 Richard Lawrence
 ' https://github.com/mrsilver76/itunes_playlist_exporter
 '
 ' A script which connects to iTunes and exports all playlists in m3u
@@ -104,7 +104,7 @@ bExportFromItunes = True
 bUploadToPlex = True
 bDeletePlexPlaylists = True
 
-Const VERSION = "1.2"
+Const VERSION = "1.2.1"
 
 Call Force_Cscript_Execution
 
