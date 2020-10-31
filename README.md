@@ -79,8 +79,6 @@ If you set this option to `False` then the paths and the playlist file format wi
 
 If you plan on allowing other users/machines/software to access the playlist then you may find that the location embedded in the playlist file can only be accessed by the machine you created the playlist on. For example, `D:\My Music` won't be accessible by a NAS or a different computer. To solve this you can use `PATH_FIND` and `PATH_REPLACE` to swap out the paths within the playlists to ones which can be accessed. 
 
-> :warning: If you enable `USE_LINUX_PATHS` then you should be aware than all `\` in the path will have already been replaced with `/` __before__ `PATH_FIND` is considered. Therefore, you should ensure that `PATH_FIND` contains no `\` 
-
 `PATH_FIND` - the text to find within the path of a song
 
 `PATH_REPLACE` - the text to replace within the path of a song
