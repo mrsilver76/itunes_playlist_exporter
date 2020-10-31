@@ -1,6 +1,6 @@
 Option Explicit
 
-' iTunes Playlist Exporter v1.2.1, Copyright © 2020 Richard Lawrence
+' iTunes Playlist Exporter v1.3.0, Copyright © 2020 Richard Lawrence
 ' https://github.com/mrsilver76/itunes_playlist_exporter
 '
 ' A script which connects to iTunes and exports all playlists in m3u
@@ -45,9 +45,19 @@ Const IGNORE_PREFIX = "z "
 ' If you plan on allowing other users/machines/software to access the playlist
 ' then you may find that the location embedded in the playlist file isn't accessible
 ' for them. For example, "D:\MyMusic" won't be accessible by a NAS or another
-' computer. To solve this you can use PATH_FIND and PATH_REPLACE to swap out the
-' paths within the playlists to ones which can be accessed. 
+' computer. To solve this you can use the following options to modify your paths
+' so they point to the correct location.
 
+' USE_LINUX_PATHS - if set to True will cause two things to happen:
+'                     1. All existing paths will replace \ with /
+'                     2. The created playlist will use Linux line-endings (\n)
+'                        instead of DOS line-endings (\r\n)
+
+Const USE_LINUX_PATHS = False
+
+' These two options allow you to search (PATH_FIND) for a string in a path
+' and then replace (PATH_REPLACE) it with something else.
+'
 ' PATH_FILE - the text to find within the path of a song
 
 Const PATH_FIND = "C:\Users\Richard\Music\iTunes\iTunes Music\Music\"
@@ -104,7 +114,7 @@ bExportFromItunes = True
 bUploadToPlex = True
 bDeletePlexPlaylists = True
 
-Const VERSION = "1.2.1"
+Const VERSION = "1.3.0"
 
 Call Force_Cscript_Execution
 
@@ -178,6 +188,8 @@ Sub Export_Playlists
 	Dim oTxt : Set oTxt = CreateObject("ADODB.Stream")
 	Dim sContent
 
+	If USE_LINUX_PATHS = True Then Call Log("Exported playlists will be in Linux format")
+
 	Dim oPlayList : For Each oPlayList In oiTunes.LibrarySource.Playlists
 		' Get the content of the playlist
 		sContent = Get_Tracks(oPlayList)
@@ -230,7 +242,27 @@ Function Get_Tracks(oPlayList)
 	Dim iTotal : iTotal = oPlayList.Tracks.Count
 	Dim iDone : iDone = 0
 	Dim iLast : iLast = 999
+	Dim sLocation, sPathFind, sPathReplace, sLineEnding
 	
+	' Use correct line ending
+	If USE_LINUX_PATHS = True Then
+		sLineEnding = VbLf
+	Else
+		sLineEnding = VbCrLf
+	End If
+	
+	' Work out what we are finding and replacing
+	If PATH_FIND <> "" Then
+		sPathFind = PATH_FIND
+		sPathReplace = PATH_REPLACE
+		' If we're using Linux paths then make sure that we aren't still using / for finding
+		' as it'll always fail
+		If USE_LINUX_PATHS = True Then
+			sPathFind = Replace(sPathFind, "\", "/")
+			sPathReplace = Replace(sPathReplace, "\", "/")
+		End If
+	End If
+		
 	' Fake a log entry so that it can be updated every second
 	WScript.StdOut.Write "[" & FormatDateTime(Now(), vbLongTime) & "] Exporting playlist: " & oPlayList.Name & "  [" & oPlayList.Tracks.Count & " song" & Pluralise(oPlayList.Tracks.Count) & " / 0% completed]" & VbCr
 	
@@ -246,16 +278,21 @@ Function Get_Tracks(oPlayList)
 			Select Case LCase(fso.GetExtensionName(oTrack.Location))
 				Case "mp3", "m4a"
 					' Make sure we have the header
-					If Get_Tracks = "" Then Get_Tracks = "#EXTM3U" & VbCrLf
+					If Get_Tracks = "" Then Get_Tracks = "#EXTM3U" & sLineEnding
 					' Add the track details
-					Get_Tracks = Get_Tracks & "#EXTINF:" & oTrack.Duration & "," & oTrack.Name & " - " & oTrack.Artist & vbCrLf
+					Get_Tracks = Get_Tracks & "#EXTINF:" & oTrack.Duration & "," & oTrack.Name & " - " & oTrack.Artist & sLineEnding
 					' And the path to the file
-					If PATH_FIND <> "" Then
-						Get_Tracks = Get_Tracks & Replace(oTrack.Location, PATH_FIND, PATH_REPLACE, 1, -1, VbTextCompare)
+					sLocation = oTrack.Location
+					' Are we using Linux paths?
+					If USE_LINUX_PATHS = True Then sLocation = Replace(sLocation, "\", "/")
+					' Do we need to replace something?
+					If sPathFind <> "" Then
+						Get_Tracks = Get_Tracks & Replace(sLocation, sPathFind, sPathReplace, 1, -1, VbTextCompare)
 					Else
-						Get_Tracks = Get_Tracks & oTrack.Location & VbCrLf
+						Get_Tracks = Get_Tracks & sLocation
 					End If
-					Get_Tracks = Get_Tracks & VbCrLf
+					' Add correct newline
+					Get_Tracks = Get_Tracks & sLineEnding
 				Case Else
 					' Unwanted filetype, so skip it
 			End Select
@@ -415,7 +452,8 @@ Sub Delete_Playlists_From_Plex
 	Dim sLine, sKey
 	For Each sLine In Split(sOutput, VbCrLf)
 		sKey = Find_From_Regexp(sLine, "leafCount=\""(\d+?)\""")
-		If sKey <> "" Then
+		' Do we have a key and is it not a smart playlist
+		If sKey <> "" And Instr(sLine, "smart=""0""") > 0 Then
 			iTotal = iTotal + CLng(sKey)
 			iPlaylists = iPlaylists + 1
 		End If
@@ -427,7 +465,8 @@ Sub Delete_Playlists_From_Plex
 	' Now walk through the list again, extracting the ratingKey
 	For Each sLine In Split(sOutput, VbCrLf)
 		sKey = Find_From_Regexp(sLine, "ratingKey=\""(\d+?)\""")
-		If sKey <> "" Then			
+		' Only do something if we have a key and it's not a smart playlist
+		If sKey <> "" And Instr(sLine, "smart=""0""") > 0 Then			
 			' Verify if all of the items in this playlist can be deleted
 			If All_Playlist_Contents_In_Library(sKey) = True Then			
 				' Delete it from Plex
@@ -449,7 +488,7 @@ Sub Delete_Playlists_From_Plex
 		End If
 	Next
 
-	Call Log(iDeleted & " playlists deleted on Plex (with " & iFailed & " failure" & Pluralise(iFailed) & ")                         ")
+	Call Log(iDeleted & " playlist" & Pluralise(iDeleted) & " deleted on Plex (with " & iFailed & " failure" & Pluralise(iFailed) & ")                         ")
 
 End Sub
 
