@@ -1,6 +1,6 @@
 Option Explicit
 
-' iTunes Playlist Exporter v1.3.0, Copyright © 2020 Richard Lawrence
+' iTunes Playlist Exporter v1.4.0, Copyright © 2020 Richard Lawrence
 ' https://github.com/mrsilver76/itunes_playlist_exporter
 '
 ' A script which connects to iTunes and exports all playlists in m3u
@@ -114,7 +114,7 @@ bExportFromItunes = True
 bUploadToPlex = True
 bDeletePlexPlaylists = True
 
-Const VERSION = "1.3.0"
+Const VERSION = "1.4.0"
 
 Call Force_Cscript_Execution
 
@@ -278,7 +278,11 @@ Function Get_Tracks(oPlayList)
 			Select Case LCase(fso.GetExtensionName(oTrack.Location))
 				Case "mp3", "m4a"
 					' Make sure we have the header
-					If Get_Tracks = "" Then Get_Tracks = "#EXTM3U" & sLineEnding
+					If Get_Tracks = "" Then
+						Get_Tracks = "#EXTM3U" & sLineEnding
+						' Add the name of the playlist
+						Get_Tracks = Get_Tracks & "#PLAYLIST:" & oPlaylist.Name & sLineEnding
+					End If
 					' Add the track details
 					Get_Tracks = Get_Tracks & "#EXTINF:" & oTrack.Duration & "," & oTrack.Name & " - " & oTrack.Artist & sLineEnding
 					' And the path to the file
@@ -340,7 +344,6 @@ End Function
 ' Take a string, replace all accented characters with non-accented versions
 ' (to try and keep legibility) and then remove any characters which will
 ' prevent Windows or Plex from handling the filename.
-
 
 Function Clean_String(sText)
 
@@ -423,13 +426,75 @@ Sub Upload_Playlists
 	Dim oFile, sCmd, sOutput
 	For Each oFile In oFolder.Files
 		If LCase(fso.GetExtensionName(oFile.Name)) = "m3u" Then
-			Call Log("Adding playlist to Plex: " & oFile.Name)
-			sCmd = "curl -sS -X POST """ & SERVER & "playlists/upload?sectionID=" & LIBRARY_ID & "&path=" & URL_Encode(sPlexPlaylistLocation & "\" & oFile.Name) & "&X-Plex-Token=" & TOKEN & """"
-			sOutput = Execute_Command(sCmd)
-			If sOutput <> "" Then Call Log("Curl failed with: " & sOutput)
+		
+			' Get the proper name of the playlist
+			Dim sPlayListName : sPlayListName = Get_Playlist_Name(oFile.Path)
+			
+			' If the filename and the name of the playlist are the same then 
+			' there is no point using a temporary file and then renaming - so
+			' just upload it
+			
+			If fso.GetBaseName(oFile.Name) = sPlayListName Then
+				Call Do_Upload_To_Plex(oFile.ParentFolder & "\" & oFile.Name, sPlaylistName)
+			Else
+				' We need to rename to something temporary, upload that file,
+				' find the playlist with that temporary name and then
+				' re-name it. All because Plex cannot upload a playlist with
+				' a title!
+
+				' Copy the file to a random unique name. Make sure that nothing else
+				' is called that and then make a copy of the file to that name
+				Dim sTempFile, sTempName
+				Do
+					sTempName = fso.GetBaseName(fso.GetTempName)
+					sTempFile = oFile.ParentFolder & "\" & sTempName & ".m3u"
+				Loop Until fso.FileExists(sTempFile) = False
+				fso.CopyFile oFile.Path, sTempFile
+			
+				' Upload this to Plex
+				Call Do_Upload_To_Plex(sTempFile, sPlaylistName)
+							
+				' Delete the temporary file
+				On Error Resume Next
+				fso.DeleteFile(sTempFile)
+				On Error Goto 0
+				
+				' Find the unique ratingKey for this random unique name and then rename it
+				Dim sTitle, sLine, sKey
+				sOutput = Execute_Command("curl -sS """ & SERVER & "playlists/all/?X-Plex-Token=" & TOKEN & """")	
+				For Each sLine In Split(sOutput, VbCrLf)
+					sKey = Find_From_Regexp(sLine, "ratingKey=\""(\d+?)\""")
+					' Do we have a key and is it not a smart playlist
+					If sKey <> "" And Instr(sLine, "smart=""0""") > 0 Then
+						sTitle = Find_From_Regexp(sLine, "title=\""(.+?)\""")
+						' Does the title of the playlist match our temporary name?
+						If sTitle = sTempName Then
+							' Rename it to the correct name
+							sOutput = Execute_Command("curl -sS -X PUT """ & SERVER & "playlists/" & sKey & "/?title=" & URL_Encode(sPlaylistName) & "&X-Plex-Token=" & TOKEN & """")	
+							If sOutput <> "" Then Call Log("Playlist renaming failed with: " & sOutput)			
+							Exit For
+						End If
+					End If
+				Next
+			End If
 		End If
 	Next
 
+End Sub
+
+' Do_Upload_To_Plex
+' Takes a full path and filename of the upload along with a display name (in case it's
+' being renamed at a later date) and actually does the upload to Plex
+
+Sub Do_Upload_To_Plex(sUploadFile, sDisplayName)
+
+	' Use the same filename as the upload if we haven't defined one
+	if sDisplayName = "" Then sDisplayName = fso.GetBaseName(sUploadFile)
+
+	Call Log("Adding playlist: " & sDisplayName)
+	Dim sOutput : sOutput = Execute_Command("curl -sS -X POST """ & SERVER & "playlists/upload?sectionID=" & LIBRARY_ID & "&path=" & URL_Encode(sPlexPlaylistLocation & "\" & fso.GetFileName(sUploadFile)) & "&X-Plex-Token=" & TOKEN & """")
+	If sOutput <> "" Then Call Log("Curl failed with: " & sOutput)			
+	
 End Sub
 
 ' Delete_Playlists_From_Plex
@@ -440,7 +505,7 @@ End Sub
 
 Sub Delete_Playlists_From_Plex
 
-	Dim iTotal, iDone, iDeleted, iFailed, iPlaylists : iDone = 0 : iDeleted = 0 : iFailed = 0 : iPlaylists = 0
+	Dim iTotal, iDone, iDeleted, iFailed, iPlaylists, iSmart, iSkipped, iAnalysed : iDone = 0 : iDeleted = 0 : iFailed = 0 : iPlaylists = 0 : iSmart = 0 : iSkipped = 0 : iAnalysed = 0
 
 	Call Log("Deleting playlists associated with library ID " & LIBRARY_ID & " from " & SERVER)
 	Call Log("Warning: Progress may be slow and erratic with large playlists. Be patient!")
@@ -453,20 +518,28 @@ Sub Delete_Playlists_From_Plex
 	For Each sLine In Split(sOutput, VbCrLf)
 		sKey = Find_From_Regexp(sLine, "leafCount=\""(\d+?)\""")
 		' Do we have a key and is it not a smart playlist
-		If sKey <> "" And Instr(sLine, "smart=""0""") > 0 Then
-			iTotal = iTotal + CLng(sKey)
-			iPlaylists = iPlaylists + 1
+		If sKey <> "" Then
+			If Instr(sLine, "smart=""0""") > 0 Then
+				iTotal = iTotal + CLng(sKey)
+				iPlaylists = iPlaylists + 1
+			Else
+				iSmart = iSmart + 1
+			End If
 		End If
 	Next
 
-	WScript.StdOut.Write "[" & FormatDateTime(Now(), vbLongTime) & "] 0% complete ... 0 playlists deleted so far (out of a total of " & iPlaylists & ")" & VbCr
+	Call Log("Found " & iPlaylists & " playlist" & Pluralise(iPlayLists) & " to analyse, containing " & iTotal & " song" & Pluralise(iTotal) & ". " & iSmart & " smart playlist" & Pluralise(iSmart) & " are ignored")
+
+	WScript.StdOut.Write "[" & FormatDateTime(Now(), vbLongTime) & "] 0% complete ... (0 analysed, 0 skipped, 0 deleted, 0 failed)" & VbCr
+	
 	Dim tStartTime : tStartTime = Now()
 
 	' Now walk through the list again, extracting the ratingKey
 	For Each sLine In Split(sOutput, VbCrLf)
 		sKey = Find_From_Regexp(sLine, "ratingKey=\""(\d+?)\""")
 		' Only do something if we have a key and it's not a smart playlist
-		If sKey <> "" And Instr(sLine, "smart=""0""") > 0 Then			
+		If sKey <> "" And Instr(sLine, "smart=""0""") > 0 Then	
+			iAnalysed = iAnalysed + 1		
 			' Verify if all of the items in this playlist can be deleted
 			If All_Playlist_Contents_In_Library(sKey) = True Then			
 				' Delete it from Plex
@@ -477,13 +550,15 @@ Sub Delete_Playlists_From_Plex
 				Else
 					iDeleted = iDeleted + 1
 				End If
+			Else
+				iSkipped = iSkipped + 1
 			End If
 			
 			' Might as well re-use sKey again to find the number of playlists processed
 			sKey = Find_From_Regexp(sLine, "leafCount=\""(\d+?)\""")
 			iDone = iDone + CLng(sKey)
 			
-			WScript.StdOut.Write "[" & FormatDateTime(Now(), vbLongTime) & "] " & Int((iDone*100)/iTotal) & "% completed ... " & iDeleted & " playlist" & Pluralise(iDeleted) & " deleted so far (out of total of " & iPlaylists & ")  " & VbCr
+			WScript.StdOut.Write "[" & FormatDateTime(Now(), vbLongTime) & "] " & Int((iDone*100)/iTotal) & "% completed ... (" & iAnalysed & " analysed, " & iSkipped & " skipped, " & iDeleted & " deleted, " & iFailed & " failed)" & VbCr
 					
 		End If
 	Next
@@ -554,6 +629,8 @@ End Function
 ' Run a command and return the output it created
 
 Function Execute_Command(sCmd)
+
+'	Call Log("Executing: " & Replace(sCmd, TOKEN, "PLEXTOKEN"))
 
 	Execute_Command = ""
 	Dim sLine
@@ -722,4 +799,45 @@ Function Test_Plex
 		Log("Plex connection test failed: can't connect to " & SERVER)
 	End If
 	
+End Function
+
+' Get_Playlist_Name
+' Given a path and filename to a m3u, look for the #PLAYLIST: tag within
+' the first 5 lines and return it.
+
+Function Get_Playlist_Name(sFilename)
+
+	Dim oStream : Set oStream = CreateObject("ADODB.Stream")
+	
+	With oStream
+		.Charset = "utf-8"
+		.Type = 2 ' adTypeText
+		.LineSeparator = 10 ' adLF so we can handle Linux too
+		.Open
+		.LoadFromFile sFilename
+	End With
+
+	On Error Resume Next
+		
+	' Look at first 5 lines of a m3u file for #PLAYLIST:
+		
+	Dim iPos, sLine
+	
+	For iPos = 0 To 5
+		' Read the line, remove any CRs and trim whitespace
+		sLine = Trim(Replace(oStream.ReadText(-2), VbCr, ""))
+		' Check if we have the playlist line
+		If Len(sLine) > 10 And Left(LCase(sLine), 10) = "#playlist:" Then
+			Get_Playlist_Name = Mid(sLine, 11, Len(sLine))
+			If Get_Playlist_Name <> "" Then Exit For
+		End If
+	Next
+		
+	On Error Goto 0
+	oStream.Close
+	Set oStream = Nothing
+	
+	' If there isn't one in the file then take it from the filename
+	If Get_Playlist_Name = "" Then Get_Playlist_Name = fso.GetBaseName(sFilename)
+
 End Function

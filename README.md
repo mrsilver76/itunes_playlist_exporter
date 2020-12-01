@@ -41,7 +41,7 @@ This program is not recommended for people who are not comfortable with the work
 
 1.  Download the latest version from https://github.com/mrsilver76/itunes_playlist_exporter/releases
 2.  Extract the files and place the file `iTunes_Playlist_Exporter.vbs` somewhere easy to reference when you want to run it
-3.  Edit `iTunes_Playlist_Exporter.vbs` using your favourite text editor (I recommend Notepad++ but Notepad will do)
+3.  Edit `iTunes_Playlist_Exporter.vbs` using your favourite text editor (I recommend [Notepad++](https://notepad-plus-plus.org/) but Notepad will do)
 4.  Modify the settings at the top of the script based on the instructions below and then save it.
 5.  Run the command by either double-clicking on the icon (a pop-up window will appear) or from the command line using: `cscript itunes_playlist_export.vbs`.
 6.  There are some options you can call from the command line to change the use of the script. For more details see later.
@@ -88,6 +88,8 @@ If you plan on allowing other users/machines/software to access the playlist the
 These options relate to automatically uploading your playlists to Plex Media Server. Plex is free software (with an optional paid for pass) that allows you to manage and view your audio and video content. More details can be found at https://www.plex.tv/
 
 When this script launches it will test connectivity to Plex. If this fails then the script will continue to run, but modifications to Plex will be disabled.
+
+>**Note:** There is a bug within the Plex API which means that characters with [acute](https://en.wikipedia.org/wiki/Acute_accent) and [grave](https://en.wikipedia.org/wiki/Grave_accent) accents may appear as `?` within the Plex interface.
 
 ### TOKEN
 
