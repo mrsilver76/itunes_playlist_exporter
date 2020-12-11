@@ -1,7 +1,7 @@
 # iTunes Playlist exporter
 A script which connects to iTunes and exports all playlists in m3u format. It can also (optionally) adjust the paths of playlists to support remote drives (eg. on a NAS or a shared drive on another computer) and upload them to Plex.
 
-> :warning: **This script will delete playlists previously stored in Plex**: See the "Plex warning" section for more details.
+> :warning: **This script can delete playlists previously stored in Plex**: See the "Plex warning" section for more details.
 
 ## Features
 
@@ -18,13 +18,13 @@ This script has the following features:
 
 This script allows you to (optionally) upload your playlists to Plex.
 
-To enable this, this script treats iTunes as the primary store of playlists and mirrors the content to Plex. _**All non-smart Plex playlists solely associated with a music library (defined within the script) will be deleted and replaced**_.
+In order to keep playlists between iTunes and Plex in sync, the script treats iTunes as the primary store of playlists and mirrors the content to Plex. As a result _**all non-smart Plex playlists solely associated with a music library (defined within the script) will be deleted and replaced**_.
 
 The following playlist types will not be deleted:
 *  Playlists that contains content outside of the music library (eg. someone elses playlists or a playlist of video files)
 *  Smart playlists generated within Plex 
 
-> :warning: It is not recommended to use this script if you create and maintain music playlists within Plex.
+> **If you do not want to delete playlists in Plex, then you should use `/D` from the command line.**
 
 ## Requirements
 
