@@ -3,6 +3,8 @@ A script which connects to iTunes and exports all playlists in m3u format. It ca
 
 > :warning: **This script can delete playlists previously stored in Plex**: See the "Plex warning" section for more details.
 
+![screenshot](https://github.com/mrsilver76/itunes_playlist_exporter/blob/master/screen.png?raw=true)
+
 ## Features
 
 This script has the following features:
