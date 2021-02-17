@@ -1,6 +1,6 @@
 Option Explicit
 
-' iTunes Playlist Exporter v1.4.0, Copyright © 2020 Richard Lawrence
+' iTunes Playlist Exporter v1.5.0, Copyright © 2020-2021 Richard Lawrence
 ' https://github.com/mrsilver76/itunes_playlist_exporter
 '
 ' A script which connects to iTunes and exports all playlists in m3u
@@ -109,16 +109,18 @@ Dim wshShell : Set wshShell = CreateObject("WScript.Shell")
 
 Dim sPlayListLocation : sPlayListLocation = Get_Playlist_Location(LOCAL_PLAYLIST_LOCATION)
 Dim sPlexPlayListLocation : sPlexPlayListLocation = Get_Playlist_Location(PLEX_PLAYLIST_LOCATION)
-Dim bExportFromItunes, bUploadToPlex, bDeletePlexPlaylists
+Dim bExportFromItunes, bUploadToPlex, bDeletePlexPlaylists, bIgnoreSmartPlaylists, bVerbose
 bExportFromItunes = True
 bUploadToPlex = True
 bDeletePlexPlaylists = True
+bIgnoreSmartPlaylists = False
+bVerbose = False
 
-Const VERSION = "1.4.0"
+Const VERSION = "1.5.0"
 
 Call Force_Cscript_Execution
 
-WScript.Echo "iTunes Playlist Exporter v" & VERSION & ", Copyright " & Chr(169) & " 2020 Richard Lawrence"
+WScript.Echo "iTunes Playlist Exporter v" & VERSION & ", Copyright " & Chr(169) & " 2020-2021 Richard Lawrence"
 WScript.Echo "https://github.com/mrsilver76/itunes_playlist_exporter"
 WScript.Echo "This program comes with ABSOLUTELY NO WARRANTY. This is free software,"
 WScript.Echo "and you are welcome to redistribute it under certain conditions; see"
@@ -128,6 +130,8 @@ WScript.Echo
 Call Read_Params
 
 Call Log("Starting iTunes Playlist Exporter")
+
+If bVerbose = True Then Call Log("Verbose mode enabled")
 
 ' Don't upload to Plex if we cannot find the server
 If Test_Plex() = False Then bUploadToPlex = False
@@ -228,6 +232,12 @@ Function Get_Tracks(oPlayList)
 	' ... and not empty
 	If CInt(oPlayList.Tracks.Count) = 0 Then
 		Call Log("Empty playlist ignored: " & oPlayList.Name)
+		Exit Function
+	End If
+	
+	' ... and not a smart playlist (if we've asked to ignore them)
+	If bIgnoreSmartPlaylists = True And oPlaylist.Smart = True Then
+		Call Log("Smart playlist ignored: " & oPlayList.Name)
 		Exit Function
 	End If
 	
@@ -630,11 +640,15 @@ End Function
 
 Function Execute_Command(sCmd)
 
-'	Call Log("Executing: " & Replace(sCmd, TOKEN, "PLEXTOKEN"))
+	Dim lStart, lEnd
+
+	If bVerbose = True Then Call Log("Executing: " & Replace(sCmd, TOKEN, "PLEXTOKEN"))
 
 	Execute_Command = ""
 	Dim sLine
 	Dim oExec : Set oExec = wshShell.Exec(sCmd)
+	
+	lStart = Timer()
 	Do
 		sLine = oExec.StdOut.ReadLine()
 		If sLine <> "" Then 
@@ -644,8 +658,24 @@ Function Execute_Command(sCmd)
 			Execute_Command = Execute_Command & sLine
 		End If
 	Loop While Not oExec.StdOut.AtEndOfStream
+	lEnd = Timer()
 
 	Set oExec = Nothing
+
+	If bVerbose = True Then
+		Dim lRecv, sUnit
+		lRecv = Len(Execute_Command)
+		sUnit = "bytes"
+		If lRecv > 1024 Then
+			lRecv = LRecv / 1024
+			sUnit = "kilobyes"
+			If lRecv > 1024 Then
+				lRecv = LRecv / 1024
+				sUnit = "megabytes"
+			End If
+		End If	
+		Call Log("Received " & FormatNumber(lRecv, 2) & " " & sUnit & " in " & FormatNumber(lEnd - lStart, 2) & " seconds")
+	End If
 
 End Function
 
@@ -715,6 +745,12 @@ Sub Read_Params
 			Case "/u", "-u", "--upload"
 				' Don't upload playlists to Plex
 				bUploadToPlex = False
+			Case "/s", "-s", "--smart"
+				' Ignore smart playlists in iTunes
+				bIgnoreSmartPlaylists = True
+			Case "/v", "-v", "--verbose"
+				' Verbose - show calls to Plex
+				bVerbose = True
 			Case Else
 				Call Display_Usage("Unknown option (" & WScript.Arguments(iCount) & ")")
 		End Select
@@ -733,14 +769,16 @@ Sub Display_Usage(sError)
 	
 	If Instr(sName, " ") <> 0 Then sName = """" & sName & """"
 	
-	sText = "Usage: cscript.exe " & sName & " [/E] [/D] [/U]" & VbCrLf
+	sText = "Usage: cscript.exe " & sName & " [/E] [/S] [/D] [/U] [/V]" & VbCrLf
 	sText = sText & VbCrLf
 	sText = sText & "    No args     Start export from iTunes and upload to Plex." & VbCrLf
 	sText = sText & "    /?          Display help." & VbCrLf
 	sText = sText & "    /E          Don't export from iTunes." & VbCrLf
+	sText = sText & "    /S          Don't export smart playlists from iTunes." & VbCrLf
 	sText = sText & "    /D          Don't delete playlists from Plex." & VbCrLf
-	sText = sText & "    /U          Don't upload to Plex."
-
+	sText = sText & "    /U          Don't upload to Plex." & VbCrLf
+	sText = sText & "    /V          Verbose mode. Show commands executed."
+	
 	If sError <> "" Then
 		sText = sText & VbCrLf & VbCrLf & "Error: " & sError
 	End If
@@ -750,7 +788,7 @@ Sub Display_Usage(sError)
 
 End Sub
 
-' Log(sMessage
+' Log(sMessage)
 ' Display a message from the program on the screen. In the future this can be updated
 ' to write the logs out to a file and support verbosity settings.
 
