@@ -121,10 +121,10 @@ The full path required by Plex to access the playlists stored in `LOCAL_PLAYLIST
         No args     Start export from iTunes and upload to Plex.
         /?          Display help.
         /E          Don't export from iTunes.
-	    /S          Don't export smart playlists from iTunes.
+        /S          Don't export smart playlists from iTunes.
         /D          Don't delete playlists from Plex.
         /U          Don't upload to Plex.
-		/V          Verbose mode. Show commands executed.
+        /V          Verbose mode. Show commands executed.
 
 ### Don't export from iTunes (/E)
 
