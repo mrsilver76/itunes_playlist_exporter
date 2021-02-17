@@ -10,7 +10,7 @@ A script which connects to iTunes and exports all playlists in m3u format. It ca
 This script has the following features:
 
 1. Export the playlists to any folder, including network drives
-2. Define playlists to be ignored based on their prefix
+2. Define playlists to be ignored (based on their prefix and/or whether or not they are a smart playlist)
 3. Optionally write out the playlists using Linux file path convention and with Linux newline support
 4. Replace paths in a playlist with ones that can be accessed on by other users/machines/software (for example, repoint paths to a NAS)
 5. Delete existing playlists on Plex and upload new ones
@@ -116,17 +116,23 @@ The full path required by Plex to access the playlists stored in `LOCAL_PLAYLIST
 
 ## Command line options
 
-    Usage: cscript.exe iTunes_Playlist_Exporter.vbs [/E] [/U]
+    Usage: cscript.exe iTunes_Playlist_Exporter.vbs [/E] [/S] [/D] [/U] [/V]
     
         No args     Start export from iTunes and upload to Plex.
         /?          Display help.
         /E          Don't export from iTunes.
+	    /S          Don't export smart playlists from iTunes.
         /D          Don't delete playlists from Plex.
         /U          Don't upload to Plex.
+		/V          Verbose mode. Show commands executed.
 
 ### Don't export from iTunes (/E)
 
 Skips the deleting of previous playlists and exporting of new playlists from iTunes.
+
+### Don't export smart playlists from iTunes (/S)
+
+Skips the exporting of playlists which have been created in iTunes as a smart playlist (eg. they are based on rules).
 
 ### Don't delete playlists from Plex (/D)
 
@@ -135,6 +141,10 @@ Skips the deleting of all playlists on Plex prior to uploading new ones.
 ### Don't upload to Plex (/U)
 
 Skips the deleting of existing playlists on Plex and the re-uploading of the new playlists.
+
+### Verbose mode. Show commands executed. (/V)
+
+Displays the commands executed by the script to aid in debugging. These commands are usually communication to the Plex server (using `curl`). To avoid accidentally leaking your token when sharing with others, your Plex token will be displayed as `PLEXTOKEN` instead.
 
 ## Uploading music and playlists to a shared drive
 

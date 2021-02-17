@@ -65,7 +65,7 @@ rem Mirror the contents of the iTunes Media folder on the computer to the networ
 rem share. Uses multiple threads for speed and will retry up to five times in case
 rem the file is locked by another program or virus scanner.
 
-robocopy /MIR /COPY:DAT /DCOPY:DAT /MT /R:5 /W:5 "%src%" "%music%"
+robocopy /MIR /FFT /COPY:DAT /DCOPY:DAT /MT /R:5 /W:5 "%src%" "%music%"
 
 rem Export the playlists from iTunes to the playlists location defined within the script.
 rem
