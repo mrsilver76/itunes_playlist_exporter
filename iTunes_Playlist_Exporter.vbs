@@ -1,6 +1,6 @@
 Option Explicit
 
-' iTunes Playlist Exporter v1.5.0, Copyright © 2020-2021 Richard Lawrence
+' iTunes Playlist Exporter v1.6.0, Copyright © 2020-2021 Richard Lawrence
 ' https://github.com/mrsilver76/itunes_playlist_exporter
 '
 ' A script which connects to iTunes and exports all playlists in m3u
@@ -116,7 +116,7 @@ bDeletePlexPlaylists = True
 bIgnoreSmartPlaylists = False
 bVerbose = False
 
-Const VERSION = "1.5.0"
+Const VERSION = "1.6.0"
 
 Call Force_Cscript_Execution
 
@@ -471,8 +471,8 @@ Sub Upload_Playlists
 				
 				' Find the unique ratingKey for this random unique name and then rename it
 				Dim sTitle, sLine, sKey
-				sOutput = Execute_Command("curl -sS """ & SERVER & "playlists/all/?X-Plex-Token=" & TOKEN & """")	
-				For Each sLine In Split(sOutput, VbCrLf)
+				sOutput = Execute_Command("curl -sS """ & SERVER & "playlists/all/?X-Plex-Token=" & TOKEN & """", True)	
+				For Each sLine In sOutput
 					sKey = Find_From_Regexp(sLine, "ratingKey=\""(\d+?)\""")
 					' Do we have a key and is it not a smart playlist
 					If sKey <> "" And Instr(sLine, "smart=""0""") > 0 Then
@@ -480,8 +480,8 @@ Sub Upload_Playlists
 						' Does the title of the playlist match our temporary name?
 						If sTitle = sTempName Then
 							' Rename it to the correct name
-							sOutput = Execute_Command("curl -sS -X PUT """ & SERVER & "playlists/" & sKey & "/?title=" & URL_Encode(sPlaylistName) & "&X-Plex-Token=" & TOKEN & """")	
-							If sOutput <> "" Then Call Log("Playlist renaming failed with: " & sOutput)			
+							Dim sRen: sRen = Execute_Command("curl -sS -X PUT """ & SERVER & "playlists/" & sKey & "/?title=" & URL_Encode(sPlaylistName) & "&X-Plex-Token=" & TOKEN & """", False)
+							If sRen <> "" Then Call Log("Playlist renaming failed with: " & sRen)			
 							Exit For
 						End If
 					End If
@@ -502,7 +502,7 @@ Sub Do_Upload_To_Plex(sUploadFile, sDisplayName)
 	if sDisplayName = "" Then sDisplayName = fso.GetBaseName(sUploadFile)
 
 	Call Log("Adding playlist: " & sDisplayName)
-	Dim sOutput : sOutput = Execute_Command("curl -sS -X POST """ & SERVER & "playlists/upload?sectionID=" & LIBRARY_ID & "&path=" & URL_Encode(sPlexPlaylistLocation & "\" & fso.GetFileName(sUploadFile)) & "&X-Plex-Token=" & TOKEN & """")
+	Dim sOutput : sOutput = Execute_Command("curl -sS -X POST """ & SERVER & "playlists/upload?sectionID=" & LIBRARY_ID & "&path=" & URL_Encode(sPlexPlaylistLocation & "\" & fso.GetFileName(sUploadFile)) & "&X-Plex-Token=" & TOKEN & """", False)
 	If sOutput <> "" Then Call Log("Curl failed with: " & sOutput)			
 	
 End Sub
@@ -518,14 +518,13 @@ Sub Delete_Playlists_From_Plex
 	Dim iTotal, iDone, iDeleted, iFailed, iPlaylists, iSmart, iSkipped, iAnalysed : iDone = 0 : iDeleted = 0 : iFailed = 0 : iPlaylists = 0 : iSmart = 0 : iSkipped = 0 : iAnalysed = 0
 
 	Call Log("Deleting playlists associated with library ID " & LIBRARY_ID & " from " & SERVER)
-	Call Log("Warning: Progress may be slow and erratic with large playlists. Be patient!")
 
 	' Get a list of all the playlists for that library
-	Dim sOutput : sOutput = Execute_Command("curl -sS """ & SERVER & "playlists/all/?X-Plex-Token=" & TOKEN & """")	
+	Dim sOutput : sOutput = Execute_Command("curl -sS """ & SERVER & "playlists/all/?X-Plex-Token=" & TOKEN & """", True)
 
 	' Work out how many we have to process
 	Dim sLine, sKey
-	For Each sLine In Split(sOutput, VbCrLf)
+	For Each sLine In sOutput
 		sKey = Find_From_Regexp(sLine, "leafCount=\""(\d+?)\""")
 		' Do we have a key and is it not a smart playlist
 		If sKey <> "" Then
@@ -545,7 +544,7 @@ Sub Delete_Playlists_From_Plex
 	Dim tStartTime : tStartTime = Now()
 
 	' Now walk through the list again, extracting the ratingKey
-	For Each sLine In Split(sOutput, VbCrLf)
+	For Each sLine In sOutput
 		sKey = Find_From_Regexp(sLine, "ratingKey=\""(\d+?)\""")
 		' Only do something if we have a key and it's not a smart playlist
 		If sKey <> "" And Instr(sLine, "smart=""0""") > 0 Then	
@@ -553,9 +552,9 @@ Sub Delete_Playlists_From_Plex
 			' Verify if all of the items in this playlist can be deleted
 			If All_Playlist_Contents_In_Library(sKey) = True Then			
 				' Delete it from Plex
-				sOutput = Execute_Command("curl -sS -X DELETE """ & SERVER & "playlists/" & sKey & "?X-Plex-Token=" & TOKEN & """")
-				If sOutput <> "" Then
-					Call Log("Curl failed with: " & sOutput)
+				Dim sDel : sDel = Execute_Command("curl -sS -X DELETE """ & SERVER & "playlists/" & sKey & "?X-Plex-Token=" & TOKEN & """", False)
+				If sDel <> "" Then
+					Call Log("Curl failed with: " & sDel)
 					iFailed = iFailed + 1
 				Else
 					iDeleted = iDeleted + 1
@@ -587,7 +586,7 @@ Function All_Playlist_Contents_In_Library(sKey)
 	All_Playlist_Contents_In_Library = False
 	
 	' Get the playlist details
-	Dim sOutput : sOutput = Execute_Command("curl -sS """ & SERVER & "playlists/" & sKey & "/items?X-Plex-Token=" & TOKEN & """")
+	Dim sOutput : sOutput = Execute_Command("curl -sS """ & SERVER & "playlists/" & sKey & "/items?X-Plex-Token=" & TOKEN & """", True)
 
 	' Ideally we'd use a regexp but since the playlists can be massive, this
 	' means it's extremely slow. So we're going to use string matching instead.
@@ -595,7 +594,7 @@ Function All_Playlist_Contents_In_Library(sKey)
 	Dim sLine, sString
 	sString = "librarySectionID=""" & LIBRARY_ID & """"
 
-	For Each sLine In Split(sOutput, VbCrLf)
+	For Each sLine In sOutput
 		' Check if we have a line which contains librarySectionID
 		If Instr(sLine, "librarySectionID=") > 0 Then
 			' Check the match again, but with the LIBRARY_ID included
@@ -636,36 +635,66 @@ End Function
 
 
 ' Execute_Command
-' Run a command and return the output it created
+' Run a command and return the output it created. If bReturnArray is set to True
+' then the output will be returned as an array instead of a string. True is
+' highly recommended for large amounts of data as creating a single string is
+' very slow.
 
-Function Execute_Command(sCmd)
+Function Execute_Command(sCmd, bReturnArray)
 
-	Dim lStart, lEnd
+	If bReturnArray = True Then
+		Execute_Command = Call_Command(sCmd)
+	Else
+		Dim sOutput : sOutput = Call_Command(sCmd)
+		' Now convert to string
+		Execute_Command = ""
+		Dim i : For i = 0 To UBound(sOutput)
+			If IsEmpty(sOutput(i)) = False Then Execute_Command = Execute_Command & sOutput(i)
+		Next
+	End If
+		
+End Function
 
-	If bVerbose = True Then Call Log("Executing: " & Replace(sCmd, TOKEN, "PLEXTOKEN"))
+' Call_Command
+' The actual calling of the command and then returning an array of the
+' output
 
-	Execute_Command = ""
-	Dim sLine
-	Dim oExec : Set oExec = wshShell.Exec(sCmd)
-	
-	lStart = Timer()
-	Do
-		sLine = oExec.StdOut.ReadLine()
-		If sLine <> "" Then 
-			' This is messy but we don't want to append an additional CrLf to
-			' the end of the output if it wasn't outputted
-			If Execute_Command <> "" Then Execute_Command = Execute_Command & VbCrLf
-			Execute_Command = Execute_Command & sLine
-		End If
-	Loop While Not oExec.StdOut.AtEndOfStream
-	lEnd = Timer()
+Function Call_Command(sCmd)
 
-	Set oExec = Nothing
+	Dim lStart, lEnd, lRecv, i : i = 0
 
 	If bVerbose = True Then
-		Dim lRecv, sUnit
-		lRecv = Len(Execute_Command)
-		sUnit = "bytes"
+		If Len(TOKEN) > 0 Then
+			Call Log("Executing: " & Replace(sCmd, TOKEN, "PLEXTOKEN"))
+		Else
+			Call Log("Executing: " & sCmd)
+		End If
+	End If
+
+	lStart = Timer()
+
+	Dim oExec : Set oExec = wshShell.Exec(sCmd)
+	Do Until oExec.StdOut.AtEndOfStream
+		ReDim Preserve sOutput(i)
+		sOutput(i) = oExec.StdOut.ReadLine()
+		lRecv = lRecv + Len(sOutput(i))
+		i = i + 1
+	Loop
+	Set oExec = Nothing
+
+	If i > 0 Then
+		' The command produced output
+		Call_Command = sOutput
+	Else
+		' No output was produced, so return an empty array
+		ReDim sOutput(0)
+		Call_Command = sOutput
+	End If
+	
+	lEnd = Timer()
+	
+	If bVerbose = True Then
+		Dim sUnit : sUnit = "bytes"
 		If lRecv > 1024 Then
 			lRecv = LRecv / 1024
 			sUnit = "kilobyes"
@@ -798,7 +827,7 @@ Sub Log(sMessage)
 
 	' If the Plex token is in the string, then replace it with stars of equal length. This
 	' is to avoid accidentally leaking the Plex token
-	If Instr(sEntry, TOKEN) > 0 Then sEntry = Replace(Space(Len(TOKEN)), " ", "*")
+	If Len(TOKEN) > 0 And Instr(sEntry, TOKEN) > 0 Then sEntry = Replace(Space(Len(TOKEN)), " ", "*")
 	
 	WScript.Echo sEntry
 		
@@ -819,7 +848,7 @@ Function Test_Plex
 		Exit Function
 	End If
 
-	Dim sOutput : sOutput = Execute_Command("curl -sS """ & SERVER & "?X-Plex-Token=" & TOKEN & """")
+	Dim sOutput : sOutput = Execute_Command("curl -sS """ & SERVER & "?X-Plex-Token=" & TOKEN & """", False)
 
 	' Server and token look good
 
