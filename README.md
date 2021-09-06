@@ -138,6 +138,8 @@ Skips the exporting of playlists which have been created in iTunes as a smart pl
 
 Skips the deleting of all playlists on Plex prior to uploading new ones.
 
+Note: If you attempt to upload a playlist into one that already exists, Plex will not duplicate songs.
+
 ### Don't upload to Plex (/U)
 
 Skips the deleting of existing playlists on Plex and the re-uploading of the new playlists.
