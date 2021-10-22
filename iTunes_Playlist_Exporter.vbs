@@ -1,6 +1,6 @@
 Option Explicit
 
-' iTunes Playlist Exporter v1.6.0, Copyright © 2020-2021 Richard Lawrence
+' iTunes Playlist Exporter v1.6.1, Copyright © 2020-2021 Richard Lawrence
 ' https://github.com/mrsilver76/itunes_playlist_exporter
 '
 ' A script which connects to iTunes and exports all playlists in m3u
@@ -116,7 +116,7 @@ bDeletePlexPlaylists = True
 bIgnoreSmartPlaylists = False
 bVerbose = False
 
-Const VERSION = "1.6.0"
+Const VERSION = "1.6.1"
 
 Call Force_Cscript_Execution
 
@@ -526,9 +526,9 @@ Sub Delete_Playlists_From_Plex
 	Dim sLine, sKey
 	For Each sLine In sOutput
 		sKey = Find_From_Regexp(sLine, "leafCount=\""(\d+?)\""")
-		' Do we have a key and is it not a smart playlist
+		' Do we have a key and is it not a smart playlist and not a video playlist
 		If sKey <> "" Then
-			If Instr(sLine, "smart=""0""") > 0 Then
+			If Instr(sLine, "smart=""0""") > 0 And Instr(sLine, "playlistType=""audio""") > 0 Then
 				iTotal = iTotal + CLng(sKey)
 				iPlaylists = iPlaylists + 1
 			Else
@@ -537,7 +537,7 @@ Sub Delete_Playlists_From_Plex
 		End If
 	Next
 
-	Call Log("Found " & iPlaylists & " playlist" & Pluralise(iPlayLists) & " to analyse, containing " & iTotal & " song" & Pluralise(iTotal) & ". " & iSmart & " smart playlist" & Pluralise(iSmart) & " are ignored")
+	Call Log("Found " & iPlaylists & " playlist" & Pluralise(iPlayLists) & " to analyse, containing " & iTotal & " song" & Pluralise(iTotal) & ". " & iSmart & " smart/video playlist" & Pluralise(iSmart) & " ignored")
 
 	WScript.StdOut.Write "[" & FormatDateTime(Now(), vbLongTime) & "] 0% complete ... (0 analysed, 0 skipped, 0 deleted, 0 failed)" & VbCr
 	
@@ -546,8 +546,8 @@ Sub Delete_Playlists_From_Plex
 	' Now walk through the list again, extracting the ratingKey
 	For Each sLine In sOutput
 		sKey = Find_From_Regexp(sLine, "ratingKey=\""(\d+?)\""")
-		' Only do something if we have a key and it's not a smart playlist
-		If sKey <> "" And Instr(sLine, "smart=""0""") > 0 Then	
+		' Only do something if we have a key and it's not a smart playlist and not a video playlist
+		If sKey <> "" And Instr(sLine, "smart=""0""") > 0 And Instr(sLine, "playlistType=""audio""") > 0 Then	
 			iAnalysed = iAnalysed + 1		
 			' Verify if all of the items in this playlist can be deleted
 			If All_Playlist_Contents_In_Library(sKey) = True Then			
