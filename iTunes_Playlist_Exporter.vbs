@@ -1,6 +1,6 @@
 Option Explicit
 
-' iTunes Playlist Exporter v1.6.1, Copyright © 2020-2021 Richard Lawrence
+' iTunes Playlist Exporter v1.7.0, Copyright © 2020-2022 Richard Lawrence
 ' https://github.com/mrsilver76/itunes_playlist_exporter
 '
 ' A script which connects to iTunes and exports all playlists in m3u
@@ -116,11 +116,11 @@ bDeletePlexPlaylists = True
 bIgnoreSmartPlaylists = False
 bVerbose = False
 
-Const VERSION = "1.6.1"
+Const VERSION = "1.7.0"
 
 Call Force_Cscript_Execution
 
-WScript.Echo "iTunes Playlist Exporter v" & VERSION & ", Copyright " & Chr(169) & " 2020-2021 Richard Lawrence"
+WScript.Echo "iTunes Playlist Exporter v" & VERSION & ", Copyright " & Chr(169) & " 2020-2022 Richard Lawrence"
 WScript.Echo "https://github.com/mrsilver76/itunes_playlist_exporter"
 WScript.Echo "This program comes with ABSOLUTELY NO WARRANTY. This is free software,"
 WScript.Echo "and you are welcome to redistribute it under certain conditions; see"
@@ -227,10 +227,10 @@ Function Get_Tracks(oPlayList)
 	If oPlayList.Visible = False Then Exit Function
 
 	' ... and not special
-	If CInt(oPlayList.SpecialKind) <> 0 Then Exit Function
+	If CLng(oPlayList.SpecialKind) <> 0 Then Exit Function
 	
 	' ... and not empty
-	If CInt(oPlayList.Tracks.Count) = 0 Then
+	If CLng(oPlayList.Tracks.Count) = 0 Then
 		Call Log("Empty playlist ignored: " & oPlayList.Name)
 		Exit Function
 	End If
@@ -498,11 +498,18 @@ End Sub
 
 Sub Do_Upload_To_Plex(sUploadFile, sDisplayName)
 
+	Dim sSlash
+	If USE_LINUX_PATHS = True Then
+		sSlash = "/"
+	Else
+		sSlash = "\"
+	End If
+
 	' Use the same filename as the upload if we haven't defined one
 	if sDisplayName = "" Then sDisplayName = fso.GetBaseName(sUploadFile)
 
 	Call Log("Adding playlist: " & sDisplayName)
-	Dim sOutput : sOutput = Execute_Command("curl -sS -X POST """ & SERVER & "playlists/upload?sectionID=" & LIBRARY_ID & "&path=" & URL_Encode(sPlexPlaylistLocation & "\" & fso.GetFileName(sUploadFile)) & "&X-Plex-Token=" & TOKEN & """", False)
+	Dim sOutput : sOutput = Execute_Command("curl -sS -X POST """ & SERVER & "playlists/upload?sectionID=" & LIBRARY_ID & "&path=" & URL_Encode(sPlexPlaylistLocation & sSlash & fso.GetFileName(sUploadFile)) & "&X-Plex-Token=" & TOKEN & """", False)
 	If sOutput <> "" Then Call Log("Curl failed with: " & sOutput)			
 	
 End Sub
@@ -598,7 +605,7 @@ Function All_Playlist_Contents_In_Library(sKey)
 		' Check if we have a line which contains librarySectionID
 		If Instr(sLine, "librarySectionID=") > 0 Then
 			' Check the match again, but with the LIBRARY_ID included
-			If Instr(sLine, sString) = -1 Then
+			If Instr(sLine, sString) = 0 Then
 				' It's not there, this is not a library we want to delete
 				Exit Function
 			End If
