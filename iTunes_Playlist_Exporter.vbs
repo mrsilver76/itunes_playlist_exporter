@@ -227,10 +227,10 @@ Function Get_Tracks(oPlayList)
 	If oPlayList.Visible = False Then Exit Function
 
 	' ... and not special
-	If CInt(oPlayList.SpecialKind) <> 0 Then Exit Function
+	If CLng(oPlayList.SpecialKind) <> 0 Then Exit Function
 	
 	' ... and not empty
-	If CInt(oPlayList.Tracks.Count) = 0 Then
+	If CLng(oPlayList.Tracks.Count) = 0 Then
 		Call Log("Empty playlist ignored: " & oPlayList.Name)
 		Exit Function
 	End If
