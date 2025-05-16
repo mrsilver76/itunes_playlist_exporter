@@ -1,9 +1,13 @@
 # iTunes Playlist exporter
-A script which connects to iTunes and exports all playlists in m3u format. It can also (optionally) adjust the paths of playlists to support remote drives (eg. on a NAS or a shared drive on another computer) and upload them to Plex.
+_A script which connects to iTunes and exports all playlists in m3u format. It can also (optionally) adjust the paths of playlists to support remote drives (eg. on a NAS or a shared drive on another computer) and upload them to Plex._
 
-> :warning: **This script can delete playlists previously stored in Plex**: See the "Plex warning" section for more details.
-
-![screenshot](https://github.com/mrsilver76/itunes_playlist_exporter/blob/master/screen.png?raw=true)
+>[!CAUTION]
+> **This script is deprecated and will eventually be retired.**   
+> Modern replacements with better features and active support are available:
+> - 🎵 [TuneLift](https://github.com/mrsilver76/tunelift) – _Export your iTunes playlists to `.m3u` files (Windows only)_
+> - 📂 [Plex Playlist Uploader](https://github.com/mrsilver76/plex-playlist-uploader) – _Upload `.m3u` playlists to Plex Media Server (Windows, Linux, macOS)_
+>
+> These tools are under active development and designed to work together.
 
 ## Features
 
