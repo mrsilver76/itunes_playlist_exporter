@@ -5,7 +5,7 @@ _A script which connects to iTunes and exports all playlists in m3u format. It c
 > **This script is deprecated and will eventually be retired.**   
 > Modern replacements with better features and active support are available:
 > - 🎵 [TuneLift](https://github.com/mrsilver76/tunelift) – _Export your iTunes playlists to `.m3u` files (Windows only)_
-> - 📂 [Plex Playlist Uploader](https://github.com/mrsilver76/plex-playlist-uploader) – _Upload `.m3u` playlists to Plex Media Server (Windows, Linux, macOS)_
+> - 📂 [ListPorter](https://github.com/mrsilver76/listporter) – _Upload `.m3u` playlists to Plex Media Server (Windows, Linux, macOS)_
 >
 > These tools are under active development and designed to work together.
 
